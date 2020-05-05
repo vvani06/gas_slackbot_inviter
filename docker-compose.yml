@@ -1,0 +1,7 @@
+version: "3"
+services:
+  gas:
+    build:
+      context: .devcontainer
+      dockerfile: Dockerfile
+
