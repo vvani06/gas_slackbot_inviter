@@ -1,54 +1,53 @@
-const token = PropertiesService.getScriptProperties().getProperty('SLACK_ACCESS_TOKEN');  
+function getChannelsFromSpreadsheet() {
+  const spreadSheet = SpreadsheetApp.getActiveSpreadsheet();
+
+  return spreadSheet
+    .getRangeByName("channels")
+    .getValues().map(c => ({ name: c[0], id: c[1] }))
+    .filter(c => c.name);
+}
+
+const slackApi = new SlackAPI(PropertiesService.getScriptProperties().getProperty('SLACK_ACCESS_TOKEN'));
 
 function doPost(e) {
-  const parameters = JSON.parse(e.postData.getDataAsString());
-  log(JSON.stringify(parameters));
+  const request = new SlackRequest(e);
+  // slackApi.log(request.parameters);
   
-  if (parameters.type === "url_verification") {
-    return urlVerification(parameters);
-  }  
+  if (request.type === "url_verification") {
+    return slackApi.createTextResponse(request.parameters.challenge);
+  }
+  
+  if (request.type === "slash_command") {
+    return respondChannels();
+  }
 
-  if (parameters.event) {
-    return handleEvent(parameters.event);
+  if (request.type === "interactive_message" && request.actionType === "request_invitation") {
+    slackApi.invite([request.user], request.actions["channel"]);
+    return slackApi.createTextResponse("招待しておいたよ");
   }
 }
 
-function handleEvent(event) {
-  if (event.type === "app_home_opened") {
-    return appHomeOpened(event);
-  }
-}
-
-function appHomeOpened(parameters) {
-  slackApi("https://slack.com/api/conversations.invite", {
-    "channel": "G012K0LAPKQ",
-    "users": parameters.user,
-  });
-}
-
-function urlVerification(parameters) {
-  const reponse = ContentService.createTextOutput();
-  reponse.setMimeType(ContentService.MimeType.TEXT);
-  reponse.setContent(parameters.challenge);
-  return reponse;
-}
-
-function slackApi(url, payload) {
-  const options = {
-    'headers': {
-      'Authorization': `Bearer ${token}`
-    },
-    "method": "post",
-    "contentType": "application/json",
-    "payload": JSON.stringify(payload)
+function respondChannels() {
+  const response = {
+    text: "やあ。闇Botだよ。招待してほしい闇チャネルのボタンを押してみたまえ。",
+    reponse_type: "ephemeral",
+    attachments: [
+      {
+        title: "闇のチャンネルたち",
+        text: "闇チャンネルリスト",
+        fallback: "非対応機種だわ",
+        callback_id: "request_invitation",
+        color: "#ff00000",
+        attachment_type: "default",
+        actions: getChannelsFromSpreadsheet().map(c => ({
+          name: c.id,
+          text: c.name,
+          type: "button",
+          value: "channel"
+        }))
+      }
+    ]
   };
-
-  UrlFetchApp.fetch(url, options);
-}
-
-function log(content) {
-  slackApi("https://slack.com/api/chat.postMessage", {
-    "channel": "UR61XM9GA",
-    "text": content
-  });
+  
+  return slackApi.createJsonResponse(response);
 }
