@@ -11,7 +11,6 @@ const slackApi = new SlackAPI(PropertiesService.getScriptProperties().getPropert
 
 function doPost(e) {
   const request = new SlackRequest(e);
-  // slackApi.log(request.parameters);
   
   if (request.type === "url_verification") {
     return slackApi.createTextResponse(request.parameters.challenge);
@@ -25,6 +24,24 @@ function doPost(e) {
     slackApi.invite([request.user], request.actions["channel"]);
     return slackApi.createTextResponse("招待しておいたよ");
   }
+}
+
+function doGet(e) {
+  const channelIdentifier = e.parameter.channel;
+  if (!channelIdentifier) return;
+
+  const users = slackApi
+    .listUsers()
+    .members
+    .map(u => new slackUser(u))
+    .filter(u => !u.isDeleted)
+    .filter(u => u.email);
+
+  const requesterEmail = Session.getActiveUser().getEmail();
+  const user = users.find(u => u.email === requesterEmail);
+  slackApi.invite([user.identifier], channelIdentifier);
+
+  return slackApi.createTextResponse("Slackのチャンネルに招待しました。うまくいって無さそうな場合、管理者に連絡くださいませ。");
 }
 
 function respondChannels() {

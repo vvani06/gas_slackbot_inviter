@@ -25,7 +25,7 @@ class SlackAPI {
       "payload": JSON.stringify(payload)
     };
   
-    return UrlFetchApp.fetch(url, options);
+    return JSON.parse(UrlFetchApp.fetch(url, options).getContentText());
   }
 
   invite(userIdentifiers, channelIdentifier) {
@@ -33,6 +33,14 @@ class SlackAPI {
       "channel": channelIdentifier,
       "users": userIdentifiers.join(",")
     });
+  }
+
+  listUsers() {
+    const url = `https://slack.com/api/users.list?token=${this.token}`;
+    return JSON.parse(UrlFetchApp.fetch(url, {
+      "method": "get",
+      "contentType": "application/x-www-form-urlencoded",
+    }).getContentText());
   }
   
   log(content) {
